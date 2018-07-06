@@ -1,0 +1,160 @@
+*&---------------------------------------------------------------------*
+*& Report  Z_HOCHLADEN
+*&
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
+
+REPORT  z_hochladen.
+
+DATA: ld_path_upload TYPE string,
+      l_filetable TYPE filetable,
+      lv_rc TYPE i,
+      it_html TYPE TABLE OF tbl1024,
+      length TYPE i,
+      wa_upload TYPE zversand_message,
+      lv_filename TYPE string,
+      wa_vkorg TYPE tvko,
+      lv_aktualisieren,lv_anlegen.
+SELECTION-SCREEN BEGIN OF BLOCK transmission
+  WITH FRAME TITLE text-001.
+PARAMETERS: p_vkorg TYPE tvko-vkorg DEFAULT '4000',
+            p_route TYPE likp-route DEFAULT 'UPSB2C',
+            p_sprach TYPE zversand_message-sprache DEFAULT 'D',
+            p_status TYPE zversand_message-status DEFAULT 'E',
+            p_btreff TYPE zversand_message-betreff,
+            p_rchnen TYPE zversand_message-rechnung,
+            p_pfad TYPE string.
+SELECTION-SCREEN SKIP 2.
+SELECTION-SCREEN: PUSHBUTTON 1(15) path USER-COMMAND button.
+SELECTION-SCREEN END OF BLOCK transmission.
+INITIALIZATION.
+  path = 'Pfad auswählen'.
+AT SELECTION-SCREEN.
+  CASE sy-ucomm.
+    WHEN 'BUTTON'.
+      IF p_btreff IS INITIAL.
+        MESSAGE 'Füllen Sie bitte das Betreff-Feld beim Upload.' TYPE 'I'.
+      ELSE.
+        CALL METHOD cl_gui_frontend_services=>file_open_dialog
+          EXPORTING
+            window_title            = 'Verzeichnis auswählen'
+            file_filter             = 'Text-Dateien (*.HTML)|*.HTML'
+            initial_directory       = ld_path_upload
+          CHANGING
+            file_table              = l_filetable
+            rc                      = lv_rc
+          EXCEPTIONS
+            file_open_dialog_failed = 1
+            cntl_error              = 2
+            error_no_gui            = 3
+            not_supported_by_gui    = 4
+            OTHERS                  = 5
+                .
+        IF sy-subrc <> 0.
+*     MESSAGE ID SY-MSGID TYPE SY-MSGTY NUMBER SY-MSGNO
+*                WITH SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV4.
+        ENDIF.
+      ENDIF.
+      READ TABLE l_filetable INTO ld_path_upload INDEX 1.
+      p_pfad = ld_path_upload.
+  ENDCASE.
+START-OF-SELECTION.
+  SELECT * FROM tvko
+           INTO wa_vkorg
+           WHERE vkorg = p_vkorg.
+  ENDSELECT.
+  IF sy-subrc = 0.
+    CALL FUNCTION 'GUI_UPLOAD'
+      EXPORTING
+        filename                      = ld_path_upload
+       filetype                      = 'BIN'
+     IMPORTING
+       filelength                    = length
+      TABLES
+        data_tab                      = it_html
+     EXCEPTIONS
+       file_open_error               = 1
+       file_read_error               = 2
+       no_batch                      = 3
+       gui_refuse_filetransfer       = 4
+       invalid_type                  = 5
+       no_authority                  = 6
+       unknown_error                 = 7
+       bad_data_format               = 8
+       header_not_allowed            = 9
+       separator_not_allowed         = 10
+       header_too_long               = 11
+       unknown_dp_error              = 12
+       access_denied                 = 13
+       dp_out_of_memory              = 14
+       disk_full                     = 15
+       dp_timeout                    = 16
+       OTHERS                        = 17
+              .
+    IF sy-subrc <> 0.
+* MESSAGE ID SY-MSGID TYPE SY-MSGTY NUMBER SY-MSGNO
+*         WITH SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV4.
+    ENDIF.
+    CALL FUNCTION 'SCMS_BINARY_TO_STRING'
+      EXPORTING
+        input_length        = length
+     IMPORTING
+       text_buffer         = lv_filename
+      TABLES
+        binary_tab          = it_html
+     EXCEPTIONS
+       failed              = 1
+       OTHERS              = 2.
+    IF sy-subrc <> 0.
+* MESSAGE ID SY-MSGID TYPE SY-MSGTY NUMBER SY-MSGNO
+*         WITH SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV4.
+    ENDIF.
+    SELECT * FROM zversand_message
+             INTO wa_upload
+             WHERE vkorg = p_vkorg
+             AND   route = p_route
+             AND   sprache = p_sprach
+             AND   status = p_status.
+    ENDSELECT.
+    IF sy-subrc = 0.
+      CALL FUNCTION 'POPUP_CONTINUE_YES_NO'
+        EXPORTING
+          textline1           = 'Die Datei ist bereits vorhanden. Möchten Sie die aktualisieren?'
+          titel               = 'Aktualisierung'
+       IMPORTING
+         ANSWER              = lv_aktualisieren.
+     if lv_aktualisieren = 'J'.
+      UPDATE zversand_message SET data = lv_filename betreff = p_btreff rechnung = p_rchnen
+                              WHERE vkorg = p_vkorg
+                              AND   route = p_route
+                              AND   sprache = p_sprach
+                              AND   status = p_status.
+      MESSAGE 'Die Datei wurde aktualisiert.' TYPE 'I'.
+      else.
+        exit.
+        endif.
+    ELSE.
+      CALL FUNCTION 'POPUP_CONTINUE_YES_NO'
+        EXPORTING
+          textline1           = 'Möchten Sie eine neue Datei anlegen?'
+          titel               = 'Dateianlage'
+       IMPORTING
+         ANSWER              = lv_anlegen.
+      if lv_anlegen = 'J'.
+      wa_upload-vkorg = p_vkorg.
+      wa_upload-route = p_route.
+      wa_upload-sprache = p_sprach.
+      wa_upload-status = p_status.
+      wa_upload-betreff = p_btreff.
+      wa_upload-rechnung = p_rchnen.
+      wa_upload-data = lv_filename.
+      INSERT INTO zversand_message VALUES wa_upload.
+      else.
+        exit.
+        endif.
+    ENDIF.
+  ELSE.
+    MESSAGE 'Die Verkaufsorganisation ist nicht vorgesehen.' TYPE 'I'.
+  ENDIF.
