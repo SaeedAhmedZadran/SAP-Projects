@@ -1,0 +1,85 @@
+*&---------------------------------------------------------------------*
+*& Report  Z_DOWNLOAD_1
+*&
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
+
+REPORT  z_download_1.
+
+DATA: it_download TYPE TABLE OF zversand_message,
+      ld_path TYPE string ,
+      ld_fullpath TYPE string.
+
+SELECTION-SCREEN BEGIN OF BLOCK down
+  WITH FRAME TITLE text-001 NO INTERVALS.
+SELECTION-SCREEN SKIP 1.
+PARAMETERS: p_vkorg TYPE vbrk-vkorg OBLIGATORY,
+            p_route TYPE likp-route OBLIGATORY,
+            p_sprach TYPE zversand_message-sprache OBLIGATORY,
+            p_status TYPE zversand_message-status OBLIGATORY,
+            p_pfad   TYPE string.
+SELECTION-SCREEN SKIP 2.
+SELECTION-SCREEN: PUSHBUTTON 1(15) button USER-COMMAND andrn.
+SELECTION-SCREEN END OF BLOCK down.
+
+INITIALIZATION.
+  button = 'Pfad auswählen'.
+
+
+
+AT SELECTION-SCREEN.
+
+  CASE sy-ucomm.
+    WHEN 'ANDRN'.
+      CALL METHOD cl_gui_frontend_services=>directory_browse
+        EXPORTING
+          window_title    = 'Verzeichnis auswählen'
+          initial_folder  = ld_path
+        CHANGING
+          selected_folder = ld_path
+        EXCEPTIONS
+          cntl_error      = 1
+          OTHERS          = 2.
+" Schreiben des Parameters im Pfad
+ p_pfad = ld_path.
+*      CONCATENATE ld_path '' INTO p_pfad.
+  ENDCASE.
+
+  AT SELECTION-SCREEN OUTPUT.
+  LOOP AT SCREEN.
+    IF screen-name = 'P_PFAD'.
+        screen-input = '0'.
+        MODIFY SCREEN.
+      ENDIF.
+  ENDLOOP.
+
+START-OF-SELECTION.
+
+  SELECT data FROM zversand_message
+           INTO CORRESPONDING FIELDS OF TABLE it_download
+           WHERE vkorg = p_vkorg
+           AND   route = p_route
+           AND   sprache = p_sprach
+           AND   status  = p_status.
+
+  CONCATENATE ld_path '\' p_route '.html' INTO ld_fullpath.
+
+  CALL FUNCTION 'GUI_DOWNLOAD'
+    EXPORTING
+      filename                = ld_fullpath
+      filetype                = 'ASC'
+*     append    = 'X'
+    TABLES
+      data_tab                = it_download.
+*          EXCEPTIONS
+*            file_write_error        = 1
+*            no_batch                = 2
+*            gui_refuse_filetransfer = 3
+*            invalid_type            = 4
+*            OTHERS                  = 5.
+  IF sy-subrc <> 0.
+*          MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+*                  WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+  ENDIF.
