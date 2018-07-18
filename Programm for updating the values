@@ -1,0 +1,25 @@
+*&---------------------------------------------------------------------*
+*& Report  ZUPDATE
+*&
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
+
+REPORT  zupdate.
+TYPES: BEGIN OF table1,
+       kunnr LIKE knvv-kunnr,
+       vkbur LIKE knvv-vkbur,
+        END OF table1.
+DATA: itab TYPE TABLE OF table1,
+      it_zeile TYPE table1.
+SELECT * FROM knvv INTO CORRESPONDING FIELDS OF TABLE itab
+                                      WHERE vkorg = '5000'
+                                      AND   vtweg = '50'
+                                      AND   spart = '10'
+                                      AND   ( kunnr >= '0000800000' AND kunnr =< '0000900000' ).
+IF Sy-subrc = 0.
+  Loop at itab into it_zeile.
+UPDATE knb1 set kverm = it_zeile-vkbur where kunnr = it_zeile-kunnr.
+ENDLOOP.
+ENDIF.
