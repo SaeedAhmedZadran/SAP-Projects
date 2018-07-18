@@ -1,0 +1,378 @@
+*&---------------------------------------------------------------------*
+*& Report  Z_TEST1
+*&
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
+
+REPORT  ztauschaktion_trinity.
+DATA: wa_kunde TYPE ztauschaktion,
+      gd_ucomm TYPE sy-ucomm.
+" Rahmen für die Kundennummer
+SELECTION-SCREEN BEGIN OF BLOCK kunde
+  WITH FRAME TITLE text-001 NO INTERVALS.
+PARAMETERS: pa_kunde TYPE ztauschaktion-kunnr.
+SELECTION-SCREEN END OF BLOCK kunde.
+
+" Rahmen für die Kundenanlage. Arbeitsbereiche
+DATA: ztauschaktion TYPE ztauschaktion.
+SELECTION-SCREEN BEGIN OF BLOCK anlegen
+  WITH FRAME TITLE text-002 NO INTERVALS.
+SELECTION-SCREEN BEGIN OF LINE.
+SELECTION-SCREEN COMMENT 2(10) FOR FIELD ch_anlag.
+SELECTION-SCREEN POSITION 1.
+PARAMETERS: ch_anlag AS CHECKBOX USER-COMMAND checkbox1.
+SELECTION-SCREEN END OF LINE.
+PARAMETERS: s_meng TYPE ztauschaktion-startmenge,
+            bemerk  TYPE ztauschaktion-bem.
+SELECTION-SCREEN END OF BLOCK anlegen.
+" Rahmen für die Kundenänderung. Arbeitsbereiche
+DATA : ztauschaktionaendrn TYPE ztauschaktion,
+       ztauschaktionduplikat TYPE ztauschaktion,
+       message(100) TYPE c,
+       message2(100) TYPE c.
+SELECTION-SCREEN BEGIN OF BLOCK aendrn
+  WITH FRAME TITLE text-003 NO INTERVALS.
+SELECTION-SCREEN BEGIN OF LINE.
+SELECTION-SCREEN COMMENT 2(10) FOR FIELD aendrn.
+SELECTION-SCREEN POSITION 1.
+PARAMETERS: aendrn AS CHECKBOX USER-COMMAND checkbox2.
+SELECTION-SCREEN END OF LINE.
+PARAMETERS: abzug TYPE ztauschaktion-startmenge,
+            bmerk TYPE ztauschaktion-bem.
+PARAMETERS: abzug1 RADIOBUTTON GROUP rd1,
+            add RADIOBUTTON GROUP rd1.
+SELECTION-SCREEN BEGIN OF LINE.
+SELECTION-SCREEN: COMMENT 2(15) aktmenge,
+                  COMMENT 20(15) akmenge.
+SELECTION-SCREEN END OF LINE.
+SELECTION-SCREEN END OF BLOCK aendrn.
+" Rahmen für die Kundenanzeige
+TYPE-POOLS slis.
+DATA: lt_fieldcat TYPE slis_t_fieldcat_alv,
+      lt_alvgrid TYPE TABLE OF ztauschaktion,
+      tauschen LIKE LINE OF lt_fieldcat.
+SELECTION-SCREEN BEGIN OF BLOCK anzeigen
+  WITH FRAME TITLE text-004 NO INTERVALS.
+PARAMETERS: anzeigen AS CHECKBOX USER-COMMAND checkbox3,
+            allkund AS CHECKBOX USER-COMMAND checkbox4.
+SELECTION-SCREEN END OF BLOCK anzeigen.
+
+DATA: z_delete TYPE ztauschaktion.
+SELECTION-SCREEN BEGIN OF BLOCK delete
+  WITH FRAME TITLE text-005  NO INTERVALS.
+SELECTION-SCREEN BEGIN OF LINE.
+SELECTION-SCREEN: COMMENT 2(10) FOR FIELD delete.
+SELECTION-SCREEN POSITION 1.
+PARAMETERS: delete AS CHECKBOX USER-COMMAND checkbox5.
+SELECTION-SCREEN END OF LINE.
+PARAMETERS: date TYPE ztauschaktion-erdat,
+            satzart   TYPE ztauschaktion-sa,
+            time  TYPE ztauschaktion-zeit.
+SELECTION-SCREEN END OF BLOCK delete.
+
+AT SELECTION-SCREEN.
+  gd_ucomm = sy-ucomm.
+
+AT SELECTION-SCREEN OUTPUT.
+
+  SELECT * FROM ztauschaktion
+           INTO wa_kunde
+           WHERE kunnr = pa_kunde.
+  ENDSELECT.
+  SHIFT wa_kunde-neumenge LEFT DELETING LEADING '0'.
+  aktmenge = 'Aktuelle menge'.
+  akmenge = wa_kunde-neumenge.
+
+  CASE gd_ucomm.
+    WHEN 'CHECKBOX1'.
+      CLEAR: aendrn, anzeigen, allkund,delete.
+    WHEN 'CHECKBOX2'.
+      CLEAR: ch_anlag,anzeigen,allkund,delete.
+    WHEN 'CHECKBOX3'.
+      CLEAR: ch_anlag, aendrn,allkund,delete.
+    WHEN 'CHECKBOX4'.
+      CLEAR: ch_anlag,aendrn,anzeigen,delete.
+    WHEN 'CHECKBOX5'.
+      CLEAR: ch_anlag,aendrn,anzeigen,allkund.
+  ENDCASE.
+
+  LOOP AT SCREEN.
+    IF ch_anlag = 'X'.
+      IF screen-name = 'BMERK' OR screen-name = 'ABZUG1' OR screen-name = 'ADD' OR screen-name = 'ABZUG'
+      OR screen-name = 'DATE' OR screen-name = 'SATZART' OR screen-name = 'TIME'.
+        screen-input = '0'.
+        MODIFY SCREEN.
+      ENDIF.
+    ELSEIF aendrn = 'X'.
+      IF screen-name = 'S_MENG' OR screen-name = 'BEMERK' OR screen-name = 'DATE' OR screen-name = 'SATZART'
+        OR screen-name = 'TIME'.
+        screen-input = '0'.
+        MODIFY SCREEN.
+      ENDIF.
+    ELSEIF anzeigen = 'X'.
+      IF screen-name = 'S_MENG' OR screen-name = 'BEMERK' OR screen-name = 'ABZUG'
+      OR screen-name = 'BMERK' OR screen-name = 'ABZUG1' OR screen-name = 'ADD'
+      OR screen-name = 'DATE' OR screen-name = 'SATZART' OR screen-name = 'TIME'.
+        screen-input = '0'.
+        MODIFY SCREEN.
+      ENDIF.
+    ELSEIF allkund = 'X'.
+      IF screen-name = 'S_MENG' OR screen-name = 'BEMERK' OR screen-name = 'ABZUG'
+      OR screen-name = 'BMERK'  OR screen-name = 'ABZUG1' OR screen-name = 'ADD'
+      OR screen-name = 'PA_KUNDE' OR screen-name = 'DATE' OR screen-name = 'SATZART' OR screen-name = 'TIME'.
+        screen-input = '0'.
+        MODIFY SCREEN.
+      ENDIF.
+    ELSEIF delete = 'X'.
+      IF screen-name = 'S_MENG' OR screen-name = 'BEMERK' OR screen-name = 'ABZUG'
+    OR screen-name = 'BMERK'  OR screen-name = 'ABZUG1' OR screen-name = 'ADD'.
+        screen-input = '0'.
+        MODIFY SCREEN.
+      ENDIF.
+    ENDIF.
+  ENDLOOP.
+
+START-OF-SELECTION.
+
+*  IF pa_kunde = ''.
+*    MESSAGE 'Kundennummer erdorderlich' TYPE 'I'.
+*  ELSE
+  IF ch_anlag = '' AND aendrn = '' AND anzeigen = '' AND allkund = '' AND delete = ''.
+    MESSAGE 'Eine Checkbox muss selektiert werden.' TYPE 'I'.
+
+  ELSEIF ch_anlag = 'X'.
+    IF pa_kunde = ''.
+      MESSAGE 'Kundennummer erdorderlich' TYPE 'I'.
+    ELSE.
+      SELECT * FROM ztauschaktion
+               INTO ztauschaktion
+               WHERE kunnr = pa_kunde
+               AND   sa = 'S'.
+      ENDSELECT.
+      IF s_meng = ''.
+        MESSAGE: 'Bitte die Startmenge eingeben!' TYPE 'I'.
+      ELSE.
+        IF sy-subrc = 0.
+          MESSAGE: 'Die Kundennummer ist schon vorhanden.' TYPE 'I'.
+        ELSE.
+          IF pa_kunde NOT BETWEEN '0000800000' AND '0000820000'.
+            MESSAGE: 'Die Kundennummer befindet sich nicht im Trinity-Namensraum.' TYPE 'I'.
+          ELSE.
+            ztauschaktion-kunnr = pa_kunde.
+            ztauschaktion-erdat = sy-datum.
+            ztauschaktion-zeit  = sy-uzeit.
+            ztauschaktion-sa    = 'S'.
+            ztauschaktion-vbeln = ''.
+            ztauschaktion-startmenge = s_meng.
+            ztauschaktion-neumenge = ztauschaktion-startmenge.
+            ztauschaktion-menge = ''.
+            ztauschaktion-gueltig_bis = '29991213'.
+            ztauschaktion-ernam = sy-uname.
+            ztauschaktion-aedat = sy-datum.
+            ztauschaktion-bem = bemerk.
+            INSERT INTO ztauschaktion VALUES ztauschaktion.
+            MESSAGE 'Der Auftrag wurde angelegt.' TYPE 'I'.
+          ENDIF.
+        ENDIF.
+      ENDIF.
+    ENDIF.
+  ELSEIF aendrn = 'X'.
+    IF pa_kunde = ''.
+      MESSAGE 'Kundennummer erdorderlich' TYPE 'I'.
+    ELSE.
+      SELECT * FROM ztauschaktion
+               INTO ztauschaktionaendrn
+               WHERE kunnr = pa_kunde
+               AND   sa    = 'S'.
+      ENDSELECT.
+      IF sy-subrc = 0.
+        SELECT * FROM ztauschaktion
+             INTO ztauschaktionduplikat
+             WHERE kunnr = pa_kunde
+             AND   sa    = 'S'.
+        ENDSELECT.
+        ztauschaktionaendrn-kunnr = pa_kunde.
+        ztauschaktionaendrn-erdat = sy-datum.
+        ztauschaktionaendrn-zeit = sy-uzeit.
+        ztauschaktionaendrn-sa  = 'A'.
+        ztauschaktionaendrn-vbeln = ''.
+        ztauschaktionaendrn-startmenge = ztauschaktionduplikat-neumenge.
+        IF abzug1 = 'X'.
+          ztauschaktionaendrn-menge = abzug.
+          IF ztauschaktionaendrn-menge > ztauschaktionaendrn-startmenge.
+            MESSAGE: 'Die eingegebene Menge ist größer als die aktuelle Menge' TYPE 'I'.
+          ELSE.
+            ztauschaktionaendrn-neumenge = ztauschaktionaendrn-startmenge - ztauschaktionaendrn-menge.
+            INSERT INTO ztauschaktion VALUES ztauschaktionaendrn.
+            UPDATE ztauschaktion SET neumenge = ztauschaktionaendrn-neumenge
+                                 WHERE kunnr = pa_kunde
+                                 AND   sa    = 'S'.
+            SHIFT ztauschaktionaendrn-startmenge LEFT DELETING LEADING '0'.
+            SHIFT ztauschaktionaendrn-neumenge LEFT DELETING LEADING '0'.
+
+            CONCATENATE 'Der Auftrag wurde von ' ztauschaktionaendrn-startmenge ' auf ' ztauschaktionaendrn-neumenge 'geändert' INTO message SEPARATED BY space.
+            MESSAGE message TYPE 'I'.
+          ENDIF.
+        ELSEIF add = 'X'.
+          ztauschaktionaendrn-menge = abzug.
+          ztauschaktionaendrn-neumenge = ztauschaktionaendrn-startmenge + ztauschaktionaendrn-menge.
+          ztauschaktionaendrn-gueltig_bis = sy-datum.
+          ztauschaktionaendrn-ernam = ztauschaktionduplikat-ernam.
+          ztauschaktionaendrn-aenam = sy-uname.
+          ztauschaktionaendrn-aedat = sy-datum.
+          ztauschaktionaendrn-bem = bmerk.
+
+          INSERT INTO ztauschaktion VALUES ztauschaktionaendrn.
+          UPDATE ztauschaktion SET neumenge = ztauschaktionaendrn-neumenge
+                               WHERE kunnr = pa_kunde
+                               AND   sa    = 'S'.
+          SHIFT ztauschaktionaendrn-startmenge LEFT DELETING LEADING '0'.
+          SHIFT ztauschaktionaendrn-neumenge   LEFT DELETING LEADING '0'.
+          CONCATENATE 'Der Auftrag wurde von ' ztauschaktionaendrn-startmenge ' auf ' ztauschaktionaendrn-neumenge 'geändert.' INTO message2 SEPARATED BY space.
+          MESSAGE message2 TYPE 'I'.
+        ENDIF.
+      ELSE.
+        MESSAGE 'Die Kundennummer ist nicht vorhanden.' TYPE 'I'.
+      ENDIF.
+    ENDIF.
+  ELSEIF anzeigen = 'X'.
+    IF pa_kunde = ''.
+      MESSAGE 'Kundennummer erdorderlich' TYPE 'I'.
+    ELSE.
+      WRITE: 'Kundennummer' , 20
+           'Angelegt am', 40 'Uhrzeit',
+                   60 'Startmenge', 80 'Aktuelle Menge', 100 'Gültig-bis',
+                   120 'Angelegt von', 140 'Geändert von', 160 'Geändert am' .
+      SELECT * FROM ztauschaktion
+               INTO wa_kunde
+               WHERE kunnr = pa_kunde.
+      ENDSELECT.
+      IF sy-subrc = 0.
+        ULINE.
+        SHIFT wa_kunde-startmenge LEFT DELETING LEADING '0'.
+        SHIFT wa_kunde-neumenge LEFT DELETING LEADING '0'.
+        WRITE: / wa_kunde-kunnr UNDER 'Kundennummer', wa_kunde-erdat UNDER 'Angelegt am', wa_kunde-zeit UNDER 'Uhrzeit',
+                   wa_kunde-startmenge UNDER 'Startmenge' COLOR 1 , wa_kunde-neumenge UNDER 'Aktuelle Menge' COLOR 3,
+                   wa_kunde-gueltig_bis UNDER 'Gültig-bis', wa_kunde-ernam UNDER 'Angelegt von',
+                   wa_kunde-aenam UNDER 'Geändert von',wa_kunde-aedat UNDER 'Geändert am'.
+        NEW-LINE.
+      ELSE.
+        MESSAGE 'Die Kundennumer ist nicht vorhanden.' TYPE 'I'.
+      ENDIF.
+    ENDIF.
+  ENDIF.
+*endif.
+  IF allkund = 'X'.
+    CALL FUNCTION 'REUSE_ALV_FIELDCATALOG_MERGE'
+     EXPORTING
+*       I_PROGRAM_NAME               =
+*       I_INTERNAL_TABNAME           =
+       i_structure_name             = 'ZTAUSCHAKTION'
+*       I_CLIENT_NEVER_DISPLAY       = 'X'
+*       I_INCLNAME                   =
+*       I_BYPASSING_BUFFER           =
+*       I_BUFFER_ACTIVE              =
+      CHANGING
+        ct_fieldcat                  = lt_fieldcat
+     EXCEPTIONS
+       inconsistent_interface       = 1
+       program_error                = 2
+       OTHERS                       = 3.
+    IF sy-subrc <> 0.
+* MESSAGE ID SY-MSGID TYPE SY-MSGTY NUMBER SY-MSGNO
+*         WITH SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV4.
+    ENDIF.
+
+    DELETE lt_fieldcat WHERE ( fieldname = 'SA'
+                          OR  fieldname  = 'VBELN'
+                          OR  fieldname  = 'MENGE'
+                          OR  fieldname  = sy-uname
+                          OR  fieldname  = sy-datum
+                          OR  fieldname  = 'BEM' ).
+    LOOP AT lt_fieldcat INTO tauschen.
+      CASE tauschen-fieldname.
+        WHEN 'GUELTIG_BIS'.
+          tauschen-reptext_ddic = 'Gültig bis'.
+          MODIFY lt_fieldcat FROM tauschen.
+        WHEN 'STARTMENGE'.
+          tauschen-reptext_ddic = 'Startmenge'.
+          MODIFY lt_fieldcat FROM tauschen.
+        WHEN 'NEUMENGE'.
+          tauschen-reptext_ddic = 'Neumenge'.
+          MODIFY lt_fieldcat FROM tauschen.
+      ENDCASE.
+    ENDLOOP.
+
+    SELECT * FROM ztauschaktion
+             INTO TABLE lt_alvgrid
+             WHERE sa = 'S'.
+    CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+     EXPORTING
+*           I_INTERFACE_CHECK                 = ' '
+*           I_BYPASSING_BUFFER                = ' '
+*           I_BUFFER_ACTIVE                   = ' '
+*           I_CALLBACK_PROGRAM                = ' '
+*           I_CALLBACK_PF_STATUS_SET          = ' '
+*           I_CALLBACK_USER_COMMAND           = ' '
+*           I_CALLBACK_TOP_OF_PAGE            = ' '
+*           I_CALLBACK_HTML_TOP_OF_PAGE       = ' '
+*           I_CALLBACK_HTML_END_OF_LIST       = ' '
+*           I_STRUCTURE_NAME                  =
+*           I_BACKGROUND_ID                   = ' '
+*           I_GRID_TITLE                      =
+*           I_GRID_SETTINGS                   =
+*           IS_LAYOUT                         =
+       it_fieldcat                       = lt_fieldcat
+*           IT_EXCLUDING                      =
+*           IT_SPECIAL_GROUPS                 =
+*           IT_SORT                           =
+*           IT_FILTER                         =
+*           IS_SEL_HIDE                       =
+*           I_DEFAULT                         = 'X'
+*           I_SAVE                            = ' '
+*           IS_VARIANT                        =
+*           IT_EVENTS                         =
+*           IT_EVENT_EXIT                     =
+*           IS_PRINT                          =
+*           IS_REPREP_ID                      =
+*           I_SCREEN_START_COLUMN             = 0
+*           I_SCREEN_START_LINE               = 0
+*           I_SCREEN_END_COLUMN               = 0
+*           I_SCREEN_END_LINE                 = 0
+*           I_HTML_HEIGHT_TOP                 = 0
+*           I_HTML_HEIGHT_END                 = 0
+*           IT_ALV_GRAPHICS                   =
+*           IT_HYPERLINK                      =
+*           IT_ADD_FIELDCAT                   =
+*           IT_EXCEPT_QINFO                   =
+*           IR_SALV_FULLSCREEN_ADAPTER        =
+*         IMPORTING
+*           E_EXIT_CAUSED_BY_CALLER           =
+*           ES_EXIT_CAUSED_BY_USER            =
+      TABLES
+        t_outtab                          = lt_alvgrid
+     EXCEPTIONS
+       program_error                     = 1
+       OTHERS                            = 2.
+    IF sy-subrc <> 0.
+* MESSAGE ID SY-MSGID TYPE SY-MSGTY NUMBER SY-MSGNO
+*         WITH SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV4.
+    ENDIF.
+  ELSEIF delete = 'X'.
+    IF pa_kunde = ''.
+      MESSAGE 'Kundennummer erdorderlich' TYPE 'I'.
+    ELSE.
+      DELETE FROM ztauschaktion
+               WHERE kunnr = pa_kunde
+               AND   erdat = date
+               AND   sa    = satzart
+               AND   zeit  = time.
+      IF sy-subrc = 0.
+        MESSAGE 'Die Kundendaten wurden gelöscht.' TYPE 'I'.
+      ELSE.
+        MESSAGE 'Die Kundendaten wurden nicht gelöscht.' TYPE 'I'.
+      ENDIF.
+    ENDIF.
+  ENDIF.
