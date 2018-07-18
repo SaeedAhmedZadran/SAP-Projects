@@ -1,0 +1,26 @@
+*&---------------------------------------------------------------------*
+*& Report  ZTAUSCHAKTION_SPRACHE_DELEZE
+*&
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
+
+REPORT  ztauschaktion_sprache_deleze.
+DATA: wa_delete TYPE zmateriallabel.
+
+PARAMETERS pa_sort TYPE zmateriallabel-matkl.
+
+DELETE FROM zmateriallabel
+       WHERE typ = 'A'
+       AND   kunnr = ''
+       and   matnr = ''
+       AND   matkl = pa_sort
+       AND   spras = ''
+       AND   ettik = '0000'
+       AND   text  = 'Farbe Clynol'.
+IF sy-subrc = 0.
+WRITE: 'Das Sortiment wurde gelöscht.'.
+else.
+  WRITE: 'Das Sortiment wurde nicht gelöscht.'.
+ENDIF.
