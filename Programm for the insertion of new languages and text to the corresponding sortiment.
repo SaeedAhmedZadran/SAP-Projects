@@ -1,0 +1,204 @@
+
+*&---------------------------------------------------------------------*
+*& Report  ZTAUSCHAKTION_SPRACHE
+*&
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
+
+
+REPORT  ztauschaktion_sprache.
+
+*--------------------------------------------------ARBEITSBEREICH----------------------------------------------------------*
+
+"Arbeitsbereiche deklarieren
+DATA: wa_kondmt TYPE /cmd/mb_t_kondmt,
+      wa_matlab     TYPE zmateriallabel,
+      wa_text TYPE zmatlabtext,
+      wa_zeile TYPE zmateriallabel.
+"Arbeitsbereiche für die Ausgabe des Hinweises, die auf 4 stellig lang sein sollen, sodass man die Ausgabe in einer Zeile ausgeben kann.
+DATA : wa_text1 TYPE c LENGTH 4,
+      wa_text2  TYPE c LENGTH 4.
+
+
+*-------------------------------------------------PARAMETERS---------------------------------------------------------------*
+
+SELECTION-SCREEN BEGIN OF BLOCK sprache
+  WITH FRAME TITLE text-001 NO INTERVALS.
+SELECTION-SCREEN SKIP 1.
+"Parameter für's Sortiment
+PARAMETERS: pa_sort TYPE /cmd/mb_t_kondmt-/cmd/mb_kondm.
+SELECTION-SCREEN SKIP 1.
+"Die weiteren Paramaters sind für das Feld 'Sprache' angelegt.  Das Feld Sprace hat eine besondere Routine, das heißt,
+" die  die zwei Stellen automatisch in einer Stelle umwandelt und die man 'KONVERTIERUNGSROUTINE' nennt.
+PARAMETERS: pa_spr1 TYPE /cmd/mb_t_kondmt-spras,
+            pa_spr2 TYPE /cmd/mb_t_kondmt-spras,
+            pa_spr3 TYPE /cmd/mb_t_kondmt-spras,
+            pa_spr4 TYPE /cmd/mb_t_kondmt-spras,
+            pa_spr5 TYPE /cmd/mb_t_kondmt-spras,
+            pa_spr6 TYPE /cmd/mb_t_kondmt-spras,
+            pa_spr7 TYPE /cmd/mb_t_kondmt-spras,
+            pa_spr8 TYPE /cmd/mb_t_kondmt-spras,
+            pa_spr9 TYPE /cmd/mb_t_kondmt-spras,
+            pa_spr10 TYPE /cmd/mb_t_kondmt-spras.
+SELECTION-SCREEN END OF BLOCK sprache.
+SELECTION-SCREEN BEGIN OF BLOCK hinweis
+  WITH FRAME TITLE text-002 NO INTERVALS.
+"Parameter für den Keyid aus der Tabelle "ZMATLABTEXT"
+PARAMETERS: pa_texnr  TYPE zmatlabtext-keyid.
+SELECTION-SCREEN END OF BLOCK hinweis.
+"Die Daten werden aus der Tabelle '/cmd/mb_t_kondmt' geholt und
+" in den Arbeitsbereich 'WA_KONDMT' gespeichert, wo das Feld 'Sortiment = /cmd/mb_kondm'
+"und die Sprache = 'DE'.
+SELECT SINGLE * FROM /cmd/mb_t_kondmt
+         INTO wa_kondmt
+         WHERE /cmd/mb_kondm = pa_sort
+         AND    spras = 'DE'.
+IF sy-subrc <> 0.
+  "Es wird hier überprüft, wenn der Returncode nicht gleich null ist, dann soll die folgende 'MESSAGE' ausgegeben werden.
+  MESSAGE: 'Dieses Sortiment ist bereits vorhanden.' TYPE 'I'.
+ELSE.
+  "Hier wird der Arbeitsbereich 'WA_MATLAB' leer gemacht"
+  CLEAR wa_matlab.
+  "-----------------------------------------PERFORM-----------------------------------------------------------------------"
+  " 'GLOBAL', auf dem kann von überall gegreifen werden und das 'HAUPTPROGRAMM' genannt wird.
+  PERFORM speichern  USING pa_spr1.
+  PERFORM speichern  USING pa_spr2.
+  PERFORM speichern  USING pa_spr3.
+  PERFORM speichern  USING pa_spr4.
+  PERFORM speichern  USING pa_spr5.
+  PERFORM speichern  USING pa_spr6.
+  PERFORM speichern  USING pa_spr7.
+  PERFORM speichern  USING pa_spr8.
+  PERFORM speichern  USING pa_spr9.
+  PERFORM speichern  USING pa_spr10.
+ENDIF.
+PERFORM hinweis USING pa_texnr.
+END-OF-SELECTION.
+*&---------------------------------------------------------------------*
+*&      Form  speichern
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*----------------------------------------------------------------------*
+  "Die Anweisung "FORM" definiert ein 'UNTERPROGRAMM' und seine 'SCHNITSTELLE'.
+  " 'FORM' können wir nennen, wie wir es wollen. Zum BEFEHL 'USING' kann einen parameter oder Paramerter mit dem Type des Feldes zugewiesen werden.
+*&---------------------------------------------------------------------*
+*&      Form  speichern
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_SPRACHE  text
+*----------------------------------------------------------------------*
+FORM speichern    USING p_sprache. "TYPE zmateriallabel-spras.
+  IF p_sprache = ''.
+  ELSE.
+    "Arbeitsbereich versorgen
+    wa_matlab-typ = 'A'.
+    wa_matlab-matkl = pa_sort.
+    wa_matlab-text = wa_kondmt-vtext.
+    " Mit dem INSERT wird die Daten in der Tabelle 'ZMATERIALLABEL' mit den 'VALUES' hinzugefügt.
+    INSERT INTO zmateriallabel VALUES wa_matlab.
+    IF sy-subrc <> 0.
+      " Es wird hier nochmal überprüft. Wenn der Returncode nicht gleich null ist, dann soll die folgende meldung ausgegeben werden,
+      " ansonst der 'Else-Fall'
+      MESSAGE: 'Sprache schon vorhanden.' TYPE 'I'.
+    ELSE.
+      MESSAGE: 'Sprache angelegt.' TYPE 'I'.
+    ENDIF.
+  ENDIF.
+ENDFORM.                    "speichern
+*&---------------------------------------------------------------------*
+*&      Form  HINWEIS
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+" Das zweite Unterprogramm
+*&---------------------------------------------------------------------*
+*&      Form  hinweis
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_HINWEIS  text
+*----------------------------------------------------------------------*
+FORM hinweis  USING p_hinweis TYPE zmateriallabel-text.
+  " Abholung der Daten aus der Tabelle 'zmatlabtext' und in den Arbeitsbereich 'WA_TEXT' speichern
+  "  Wo die 'KEYID = p_hinweis und 'ZEILE = '0001' '.
+  " Mit dem 'SINGLE' kann eine Zeile mit allen SPALTEN geholt werden.
+  SELECT SINGLE * FROM zmatlabtext
+           INTO wa_text
+           WHERE keyid = p_hinweis
+           AND   zeile = '0001'.
+  " Überprüfung der SELECT-ANWEISUNG
+  IF sy-subrc = 0.
+*    IF p_hinweis = wa_text-keyid.
+    SELECT SINGLE * FROM zmateriallabel
+             INTO wa_zeile
+             WHERE typ = 'H'
+             AND  matkl = pa_sort.
+    IF sy-subrc = 0.
+      "      Überprüfung. Wenn das Sortiment schon in der Tabelle 'ZMATERIALLABEL' vorhanden ist, dann soll die Meldung  ausgegeben werden
+      IF p_hinweis = wa_zeile-text.
+        MESSAGE: 'Der eingegebene Hinweis ist bereits vorhanden.' TYPE 'I'.
+      ELSE.
+        "------------------------------------------------------UPDATE-----------------------------------------------------"
+        " Ansonst soll der Hinweis aktualisiert werden. wo der Type 'H', Sortiment = matkl und zeilennummer = '0001'  sind
+        UPDATE zmateriallabel SET text = wa_text-keyid
+                              WHERE typ = 'H'
+                              AND   matkl = pa_sort
+                              AND   ettik = '0001'.
+        " Hier wird nochmal mit dem Returncode geprüft. Wenn der gleich null ist, dann soll die Aktualisierung-Meldung ausgegeben werden.
+        IF sy-subrc = 0.
+          DATA: lv_answer.
+          CALL FUNCTION 'POPUP_CONTINUE_YES_NO'
+            EXPORTING
+              textline1 = 'Möchten Sie Aktualisieren?'
+              titel     = 'POPUP_CONTINUE_YES_NO'
+            IMPORTING
+              answer    = lv_answer.
+          IF lv_answer = 'J'.
+            wa_text1 = wa_zeile-text.
+            wa_text2 = wa_text-keyid.
+            DATA: msg(100) TYPE c.
+            CONCATENATE ' Der Hinweissatz wurde von ' wa_text1 ' auf ' wa_text2  ' aktualisiert.' INTO msg SEPARATED BY space.
+            MESSAGE msg TYPE 'I'.
+          ELSE.
+            " Ansonst diese Meldung ausgeben
+            MESSAGE: 'Fehler beim aktualisieren.' TYPE 'I'.
+          ENDIF.
+        ENDIF.
+      ENDIF.
+    ELSE.
+      "Ansonst wird ein neues Sortiment mit dem 'Befehl-Insert'  mit 'Values'angelegt.
+*      IF p_hinweis = wa_text-keyid.
+      wa_zeile-typ = 'H'.
+      wa_zeile-matkl = pa_sort.
+      wa_zeile-ettik = '0001'.
+      wa_zeile-text = wa_text-keyid.
+      "--------------------------------------------------INSERT-----------------------------------------------------------"
+      INSERT INTO zmateriallabel VALUES wa_zeile.
+      "Es wird hier wieder mit dem Returncode überprüft. Wenn der erfolgreich ist, dann wird die Hinweissatz-Meldung ausgegeben
+      IF sy-subrc = 0.
+        DATA: msg2(100) TYPE c.
+        CONCATENATE 'Der Hinweissatz wurde angelegt:' p_hinweis INTO msg2 SEPARATED BY space.
+        MESSAGE msg2 TYPE 'I'.
+      ELSE.
+        " Ansonst wird diese Meldung ausgegeben
+        DATA: msg3(100) TYPE c.
+        CONCATENATE 'Den Text soll angelegt werden.' p_hinweis INTO msg3 SEPARATED BY space.
+        MESSAGE msg3 TYPE 'I'.
+      ENDIF.
+*      ENDIF.
+    ENDIF.
+  ELSE.
+    "Zuletzt wird angeschaut. Wenn die TextNr nicht vorhanden ist, dann soll diese Meldung ausgegeben werden
+    MESSAGE: 'Bitte Textbausteine anlegen mit Transaktion: "ZMATLABTEXT".' TYPE 'I'.
+  ENDIF.
+*  ENDIF.
+ENDFORM.                    " HINWEIS
+
+"------------------------------------------------------END-------------------------------------------------------------"
